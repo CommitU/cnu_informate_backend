@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: informate
+  datasource:
+    url: jdbc:h2:mem:infomate;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update   # dev?. ????? flyway ??
+    properties:
+      hibernate:
+        format_sql: true
+  jackson:
+    time-zone: Asia/Seoul
+
+server:
+  port: 8080
+
+app:
+  timezone: Asia/Seoul
+  notifications:
+    dispatcher:
+      enabled: true
