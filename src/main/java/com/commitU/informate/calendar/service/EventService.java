@@ -1,24 +1,26 @@
 package com.commitU.informate.calendar.service;
 
-import com.commitU.informate.calendar.entity.CalendarEvent;
-import com.commitU.informate.calendar.repository.CalendarEventRepository;
+import com.commitU.informate.calendar.entity.Event;
+import com.commitU.informate.calendar.repository.EventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 @Service
-public class CalendarEventService {
+public class EventService {
 
     @Autowired
-    private CalendarEventRepository calendarEventRepository;
+    private EventRepository eventRepository;
 
     // 새 일정 생성
-    public CalendarEvent createEvent(CalendarEvent calendarEvent) {
+    public Event createEvent(Event event) {
         // 비즈니스 검증
-        validateEvent(calendarEvent);
-        ret
+        validateEvent(event);
+        return eventRepository.save(event);
     }
 
     /**
@@ -35,11 +37,19 @@ public class CalendarEventService {
         return eventRepository.findByUserIdOrderByStartAtAsc(userId);
     }
 
-    /**
-     * 기간별 일정 조회
-     */
+    /** 컨트롤러 호환용 래퍼 (최소 변경) */
+    @Transactional(readOnly = true)
     public List<Event> getEventsByDateRange(String userId, LocalDateTime start, LocalDateTime end) {
-        return eventRepository.findByUserIdAndDateRange(userId, start, end);
+        return getEventsOverlapping(userId, start, end);
+    }
+
+    /** 실제 겹침 조회 로직 */
+    @Transactional(readOnly = true)
+    public List<Event> getEventsOverlapping(String userId, LocalDateTime start, LocalDateTime end) {
+        if (userId == null || userId.isBlank()) throw new IllegalArgumentException("userId는 필수입니다.");
+        if (start == null || end == null) throw new IllegalArgumentException("start/end 는 필수입니다.");
+        if (end.isBefore(start)) throw new IllegalArgumentException("end는 start 이후여야 합니다.");
+        return eventRepository.findOverlapping(userId, start, end);
     }
 
     /**
@@ -59,8 +69,8 @@ public class CalendarEventService {
     /**
      * 일정 수정
      */
-    public Optional<CalendarEvent> updateEvent(Long id, CalendarEvent updatedEvent) {
-        return CalendarEventRepository.findById(id)
+    public Optional<Event> updateEvent(Long id, Event updatedEvent) {
+        return eventRepository.findById(id)
                 .map(existingEvent -> {
                     // 기존 일정의 정보를 새 정보로 업데이트
                     existingEvent.setTitle(updatedEvent.getTitle());
@@ -72,7 +82,7 @@ public class CalendarEventService {
                     existingEvent.setCategory(updatedEvent.getCategory());
 
                     validateEvent(existingEvent);
-                    return CalendarEventRepository.save(existingEvent);
+                    return eventRepository.save(existingEvent);
                 });
     }
 
@@ -80,8 +90,8 @@ public class CalendarEventService {
      * 일정 삭제
      */
     public boolean deleteEvent(Long id) {
-        if (calendarEventRepository.existsById(id)) {
-            calendarEventRepository.deleteById(id);
+        if (eventRepository.existsById(id)) {
+            eventRepository.deleteById(id);
             return true;
         }
         return false;
@@ -90,13 +100,14 @@ public class CalendarEventService {
     /**
      * 일정 유효성 검증
      */
-    private void validateEvent(CalendarEvent calendarEvent) {
-        if (event.getStartAt().isAfter(event.getEndAt())) {
+    private void validateEvent(Event event) {
+        if (event.getStartAt() == null || event.getEndAt() == null)
+            throw new IllegalArgumentException("startAt/endAt은 필수입니다");
+        if (event.getStartAt().isAfter(event.getEndAt()))
             throw new IllegalArgumentException("시작 시간은 종료 시간보다 빨라야 합니다");
-        }
-
-        if (event.getTitle() == null || event.getTitle().trim().isEmpty()) {
+        if (event.getTitle() == null || event.getTitle().trim().isEmpty())
             throw new IllegalArgumentException("제목은 필수입니다");
-        }
+        if (event.getUserId() == null || event.getUserId().isBlank())
+            throw new IllegalArgumentException("userId는 필수입니다");
     }
 }
