@@ -1,0 +1,36 @@
+name: Build & Push image
+
+on:
+  push:
+    branches: [ "main" ]   # main에 푸시/머지되면 실행
+
+# (선택) 기본 토큰 권한 – PAT를 쓰지만 패키지 쓰기 권한을 명시해 둠
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # owner/repo 를 모두 소문자로 만들어 이미지 태그 생성
+      - name: Compute image tag (lowercase)
+        run: |
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO=$(echo "${{ github.event.repository.name }}" | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=ghcr.io/${OWNER}/${REPO}:latest" >> $GITHUB_ENV
+          echo "Using image: ghcr.io/${OWNER}/${REPO}:latest"
+
+      # GHCR 로그인 (Secrets 사용)
+      - name: Login to GHCR
+        run: echo "${{ secrets.GHCR_TOKEN }}" \
+             | docker login ghcr.io -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+
+      # Docker 이미지 빌드 & 푸시
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+
+      - name: Push image
+        run: docker push "$IMAGE"
