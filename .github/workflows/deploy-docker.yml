@@ -43,7 +43,9 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}   # PEM 내용
           script_stop: true
+          envs: GHCR_USERNAME,GHCR_TOKEN
           script: |
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
             cd ~/apps/cnu-informate
             # 최신 이미지 가져와서 무중단에 가깝게 교체
             docker compose pull app
