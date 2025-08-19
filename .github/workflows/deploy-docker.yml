@@ -38,6 +38,9 @@ jobs:
     steps:
       - name: SSH to EC2 and deploy with compose
         uses: appleboy/ssh-action@v1.0.3
+        env:                       # ← 여기서 secrets를 step env로 올려두고
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}   # 값은 반드시 lyj0304 (소문자)
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
