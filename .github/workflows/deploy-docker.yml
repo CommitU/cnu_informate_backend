@@ -4,12 +4,20 @@ on:
   push:
     branches: [ "main" ]
 
-env:
-  IMAGE_NAME: ghcr.io/lyj0304/cnu-informate-backend:latest
+# 동시에 여러 배포가 겹치면 최신 것만 남기기 (선택)
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write   # GHCR 쓰는 경우 권장
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    outputs:
+      image_sha: ${{ steps.meta.outputs.image_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,10 +35,20 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_TOKEN }}
 
+      # 이미지 태그 구성: 커밋 SHA + latest
+      - name: Prepare image tags
+        id: meta
+        run: |
+          IMAGE_BASE="ghcr.io/${{ secrets.GHCR_USERNAME }}/cnu-informate-backend"
+          echo "image_sha=${IMAGE_BASE}:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
+
       - name: Build & Push image
         run: |
-          docker build -t $IMAGE_NAME .
-          docker push $IMAGE_NAME
+          # 베이스 이미지도 최신으로 (캐시로 인한 낭패 방지)
+          docker build --pull -t "${{ env.IMAGE_BASE }}:${GITHUB_SHA}" -t "${{ env.IMAGE_BASE }}:latest" .
+          docker push "${{ env.IMAGE_BASE }}:${GITHUB_SHA}"
+          docker push "${{ env.IMAGE_BASE }}:latest"
 
   deploy:
     runs-on: ubuntu-latest
@@ -38,19 +56,39 @@ jobs:
     steps:
       - name: SSH to EC2 and deploy with compose
         uses: appleboy/ssh-action@v1.0.3
-        env:                       # ← 여기서 secrets를 step env로 올려두고
-          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}   # 값은 반드시 lyj0304 (소문자)
-          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}   # PEM 내용
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
           script_stop: true
-          envs: GHCR_USERNAME,GHCR_TOKEN
+          debug: true
+          envs: GHCR_USERNAME,GHCR_TOKEN,IMAGE_SHA
           script: |
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+            set -euo pipefail
+            echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
             cd ~/apps/cnu-informate
-            # 최신 이미지 가져와서 무중단에 가깝게 교체
+
+            # compose.yml 안의 image가 :latest 라면, 아래처럼 서비스 이미지를 강제 재태깅/교체
+            # 방법 A) compose에 변수를 쓰는 경우:
+            #   services.app.image: ghcr.io/lyj0304/cnu-informate-backend:${IMAGE_TAG}
+            #   그럼 여기서 IMAGE_TAG만 주입하면 됨.
+            #
+            # 방법 B) compose가 latest만 가리킬 때는 그냥 pull & up (digest가 바뀌면 갱신):
+            docker pull "ghcr.io/${GHCR_USERNAME}/cnu-informate-backend:${IMAGE_SHA}"
+            # 만약 compose가 latest를 사용 중이라면, 이번 커밋 SHA로 서비스 교체:
+            docker compose stop app || true
+            docker rm -f $(docker ps -aq --filter "name=app") || true
+
+            # 환경은 compose가 관리한다고 가정
+            # compose.yml의 서비스명이 'app'이 맞는지 꼭 확인!
             docker compose pull app
-            docker compose up -d
+            # 최신 SHA 이미지를 쓰도록 compose.yml을 SHA 변수로 구성했다면 아래처럼:
+            # IMAGE_TAG=${IMAGE_SHA} docker compose up -d app
+            docker compose up -d app
+
             docker image prune -f
+        env:
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+          IMAGE_SHA: ${{ needs.build-and-push.outputs.image_sha }}
