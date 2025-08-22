@@ -65,7 +65,7 @@ class InformateApplicationTests {
 				"과제",
 				LocalDateTime.parse("2025-08-12T09:00:00"),
 				LocalDateTime.parse("2025-08-12T10:00:00"),
-				"user1"
+				"user2"
 		);
 		e.setCategory("학사");
 		repo.saveAndFlush(e);
