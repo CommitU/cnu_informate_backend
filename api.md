@@ -203,6 +203,116 @@ GET /api/notices/recommend?interests=수강신청,장학금,취업&limit=5
   - 30일 이내 게시: +0.5점
 - 관심사가 없으면 최근 10개 공지사항 반환
 
+#### 12. 📂 공지사항 카테고리 조회
+```http
+GET /api/notices/categories
+```
+
+**Response:**
+```json
+{
+  "1": {
+    "sourceId": 1,
+    "name": "특강",
+    "count": 15
+  },
+  "2": {
+    "sourceId": 2,
+    "name": "기획/마케팅", 
+    "count": 8
+  },
+  "3": {
+    "sourceId": 3,
+    "name": "취업/인턴십",
+    "count": 25
+  },
+  "4": {
+    "sourceId": 4,
+    "name": "봉사 활동",
+    "count": 12
+  },
+  "5": {
+    "sourceId": 5,
+    "name": "IT/SW",
+    "count": 18
+  },
+  "6": {
+    "sourceId": 6,
+    "name": "스터디",
+    "count": 9
+  },
+  "7": {
+    "sourceId": 7,
+    "name": "디자인",
+    "count": 6
+  },
+  "8": {
+    "sourceId": 8,
+    "name": "창업",
+    "count": 11
+  },
+  "9": {
+    "sourceId": 9,
+    "name": "영상/콘텐츠",
+    "count": 14
+  },
+  "10": {
+    "sourceId": 10,
+    "name": "서포터즈/기자단",
+    "count": 7
+  },
+  "11": {
+    "sourceId": 11,
+    "name": "학사 안내",
+    "count": 22
+  },
+  "12": {
+    "sourceId": 12,
+    "name": "기타",
+    "count": 13
+  }
+}
+```
+
+#### 13. 📂 카테고리별 공지사항 조회
+```http
+GET /api/notices/category/{categoryId}
+```
+
+**파라미터:**
+- `categoryId`: 카테고리 ID
+  - 1: 특강
+  - 2: 기획/마케팅  
+  - 3: 취업/인턴십
+  - 4: 봉사 활동
+  - 5: IT/SW
+  - 6: 스터디
+  - 7: 디자인
+  - 8: 창업
+  - 9: 영상/콘텐츠
+  - 10: 서포터즈/기자단
+  - 11: 학사 안내
+  - 12: 기타
+  - 
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "sourceId": 1,
+    "externalId": null,
+    "url": "https://plus.cnu.ac.kr/_prog/_board/?mode=V&no=2508345...",
+    "title": "2025학년도 제2학기 예비수강신청 계획 안내",
+    "content": "",
+    "postedAt": null,
+    "scrapedAt": "2025-08-11T19:27:30",
+    "deadlineAt": null,
+    "hash": "8fea480bafa48b300d908f6f1b3fd083833e901f56917f4218841802d47e2e4e"
+  }
+]
+```
+
 ---
 
 ## 📊 데이터 모델
@@ -233,6 +343,7 @@ GET /api/notices/recommend?interests=수강신청,장학금,취업&limit=5
   "content": "String (선택, MEDIUMTEXT)",
   "postedAt": "LocalDateTime (선택)",
   "scrapedAt": "LocalDateTime (필수, 자동 설정)",
+  
   "deadlineAt": "LocalDateTime (선택)",
   "hash": "String (선택, 64자)"
 }
@@ -274,6 +385,18 @@ curl "http://localhost:8080/api/notices/recommend?interests=수강신청,장학�
 
 # 관심사 없이 추천 조회 (최근 공지사항 반환)
 curl "http://localhost:8080/api/notices/recommend"
+
+# 카테고리 목록 조회
+curl http://localhost:8080/api/notices/categories
+
+# 특강 카테고리 조회
+curl http://localhost:8080/api/notices/category/1
+
+# 취업/인턴십 카테고리 조회  
+curl http://localhost:8080/api/notices/category/3
+
+# IT/SW 카테고리 조회
+curl http://localhost:8080/api/notices/category/5
 ```
 
 ---
