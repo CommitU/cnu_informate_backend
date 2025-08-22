@@ -2,13 +2,14 @@ package com.commitU.informate.calendar.controller;
 
 import com.commitU.informate.calendar.entity.Event;
 import com.commitU.informate.calendar.service.EventService;
+import com.commitU.informate.calendar.dto.EventCreateRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -18,10 +19,10 @@ public class EventController {
     @Autowired
     private EventService eventService;
 
-    // 새 일정 생성(Post /api/events)
+    // 새 일정 생성
     @PostMapping
-    public ResponseEntity<Event> createEvent(@Valid @RequestBody Event event) {
-        Event createdEvent = eventService.createEvent(event);
+    public ResponseEntity<Event> createEvent(@Valid @RequestBody EventCreateRequest request) {
+        Event createdEvent = eventService.createEvent(request);
         return ResponseEntity.ok(createdEvent);
     }
 
@@ -30,9 +31,8 @@ public class EventController {
     public ResponseEntity<Event> createEventFromNotice(
             @RequestParam Long userId,
             @RequestParam Long noticeId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt) {
-        Event createdEvent = eventService.createEventFromNotice(userId, noticeId, startAt, endAt);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        Event createdEvent = eventService.createEventFromNotice(userId, noticeId, date);
         return ResponseEntity.ok(createdEvent);
     }
 
@@ -57,31 +57,9 @@ public class EventController {
     @GetMapping("/range")
     public List<Event> getEventsByRange(
             @RequestParam Long userId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate start,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate end) {
         return eventService.getEventsByDateRange(userId, start, end);
-    }
-
-    /**
-     * 제목으로 일정 검색
-     * GET /api/events/search?userId=1&title=회의
-     */
-    @GetMapping("/search")
-    public List<Event> searchEvents(
-            @RequestParam Long userId,
-            @RequestParam String title) {
-        return eventService.searchEventsByTitle(userId, title);
-    }
-
-    /**
-     * 카테고리별 일정 조회
-     * GET /api/events/category?userId=1&category=업무
-     */
-    @GetMapping("/category")
-    public List<Event> getEventsByCategory(
-            @RequestParam Long userId,
-            @RequestParam String category) {
-        return eventService.getEventsByCategory(userId, category);
     }
 
     /**
