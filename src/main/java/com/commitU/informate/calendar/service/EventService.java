@@ -2,6 +2,9 @@ package com.commitU.informate.calendar.service;
 
 import com.commitU.informate.calendar.entity.Event;
 import com.commitU.informate.calendar.repository.EventRepository;
+import com.commitU.informate.notice.entity.Notice;
+import com.commitU.informate.notice.repository.NoticeRepository;
+import com.commitU.informate.user.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +18,9 @@ public class EventService {
 
     @Autowired
     private EventRepository eventRepository;
+    
+    @Autowired
+    private NoticeRepository noticeRepository;
 
     // 새 일정 생성
     public Event createEvent(Event event) {
@@ -33,20 +39,45 @@ public class EventService {
     /**
      * 특정 사용자의 모든 일정 조회
      */
-    public List<Event> getUserEvents(String userId) {
-        return eventRepository.findByUserIdOrderByStartAtAsc(userId);
+    public List<Event> getUserEvents(Long userId) {
+        return eventRepository.findByUser_IdOrderByStartAtAsc(userId);
+    }
+    
+    /**
+     * Notice로부터 일정 생성
+     */
+    public Event createEventFromNotice(Long userId, Long noticeId, LocalDateTime startAt, LocalDateTime endAt) {
+        User user = new User();
+        user.setId(userId);
+        
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new IllegalArgumentException("공지사항을 찾을 수 없습니다: " + noticeId));
+        
+        Event event = new Event();
+        event.setTitle(notice.getTitle());
+        event.setDescription("공지사항에서 생성된 일정");
+        event.setStartAt(startAt);
+        event.setEndAt(endAt);
+        event.setUser(user);
+        event.setNotice(notice);
+        
+        if (notice.getDeadlineAt() != null) {
+            event.setCategory("마감일");
+        }
+        
+        return eventRepository.save(event);
     }
 
     /** 컨트롤러 호환용 래퍼 (최소 변경) */
     @Transactional(readOnly = true)
-    public List<Event> getEventsByDateRange(String userId, LocalDateTime start, LocalDateTime end) {
+    public List<Event> getEventsByDateRange(Long userId, LocalDateTime start, LocalDateTime end) {
         return getEventsOverlapping(userId, start, end);
     }
 
     /** 실제 겹침 조회 로직 */
     @Transactional(readOnly = true)
-    public List<Event> getEventsOverlapping(String userId, LocalDateTime start, LocalDateTime end) {
-        if (userId == null || userId.isBlank()) throw new IllegalArgumentException("userId는 필수입니다.");
+    public List<Event> getEventsOverlapping(Long userId, LocalDateTime start, LocalDateTime end) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         if (start == null || end == null) throw new IllegalArgumentException("start/end 는 필수입니다.");
         if (end.isBefore(start)) throw new IllegalArgumentException("end는 start 이후여야 합니다.");
         return eventRepository.findOverlapping(userId, start, end);
@@ -55,15 +86,22 @@ public class EventService {
     /**
      * 제목으로 검색
      */
-    public List<Event> searchEventsByTitle(String userId, String title) {
-        return eventRepository.findByUserIdAndTitleContainingIgnoreCaseOrderByStartAtAsc(userId, title);
+    public List<Event> searchEventsByTitle(Long userId, String title) {
+        return eventRepository.findByUser_IdAndTitleContainingIgnoreCaseOrderByStartAtAsc(userId, title);
     }
 
     /**
      * 카테고리별 조회
      */
-    public List<Event> getEventsByCategory(String userId, String category) {
-        return eventRepository.findByUserIdAndCategoryOrderByStartAtAsc(userId, category);
+    public List<Event> getEventsByCategory(Long userId, String category) {
+        return eventRepository.findByUser_IdAndCategoryOrderByStartAtAsc(userId, category);
+    }
+    
+    /**
+     * Notice와 연결된 일정만 조회
+     */
+    public List<Event> getEventsWithNotice(Long userId) {
+        return eventRepository.findByUser_IdAndNoticeIsNotNullOrderByStartAtAsc(userId);
     }
 
     /**
@@ -80,6 +118,9 @@ public class EventService {
                     existingEvent.setAllDay(updatedEvent.isAllDay());
                     existingEvent.setLocation(updatedEvent.getLocation());
                     existingEvent.setCategory(updatedEvent.getCategory());
+                    if (updatedEvent.getNotice() != null) {
+                        existingEvent.setNotice(updatedEvent.getNotice());
+                    }
 
                     validateEvent(existingEvent);
                     return eventRepository.save(existingEvent);
@@ -107,7 +148,7 @@ public class EventService {
             throw new IllegalArgumentException("시작 시간은 종료 시간보다 빨라야 합니다");
         if (event.getTitle() == null || event.getTitle().trim().isEmpty())
             throw new IllegalArgumentException("제목은 필수입니다");
-        if (event.getUserId() == null || event.getUserId().isBlank())
-            throw new IllegalArgumentException("userId는 필수입니다");
+        if (event.getUser() == null)
+            throw new IllegalArgumentException("user는 필수입니다");
     }
 }
