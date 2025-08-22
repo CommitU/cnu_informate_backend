@@ -1,5 +1,7 @@
 package com.commitU.informate.calendar.entity;
 
+import com.commitU.informate.notice.entity.Notice;
+import com.commitU.informate.user.entity.User;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,18 +41,32 @@ public class Event {
     @Column(length = 50)
     private String category;
 
-    @Column(nullable = false, length = 50)
-    private String userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "notice_id")
+    private Notice notice;
 
     // 기본 생성자
     public Event() {}
 
     // 편의 생성자
-    public Event(String title, LocalDateTime startAt, LocalDateTime endAt, String userId) {
+    public Event(String title, LocalDateTime startAt, LocalDateTime endAt, User user) {
         this.title = title;
         this.startAt = startAt;
         this.endAt = endAt;
-        this.userId = userId;
+        this.user = user;
+    }
+
+    // Notice와 함께 생성하는 편의 생성자
+    public Event(String title, LocalDateTime startAt, LocalDateTime endAt, User user, Notice notice) {
+        this.title = title;
+        this.startAt = startAt;
+        this.endAt = endAt;
+        this.user = user;
+        this.notice = notice;
     }
 
 
@@ -118,12 +134,20 @@ public class Event {
         this.category = category;
     }
 
-    public String getUserId() {
-        return userId;
+    public User getUser() {
+        return user;
     }
 
-    public void setUserId(String userId) {
-        this.userId = userId;
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public Notice getNotice() {
+        return notice;
+    }
+
+    public void setNotice(Notice notice) {
+        this.notice = notice;
     }
 
     @Override
@@ -134,7 +158,8 @@ public class Event {
                 ", startAt=" + startAt +
                 ", endAt=" + endAt +
                 ", allDay=" + allDay +
-                ", userId='" + userId + '\'' +
+                ", user=" + (user != null ? user.getId() : null) +
+                ", notice=" + (notice != null ? notice.getId() : null) +
                 '}';
     }
 }
