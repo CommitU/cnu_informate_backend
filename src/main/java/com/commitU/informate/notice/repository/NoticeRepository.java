@@ -24,4 +24,7 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
                                       @Param("endDate") LocalDateTime endDate);
 
     List<Notice> findTop10ByOrderByPostedAtDesc();
+
+    @Query("SELECT DISTINCT n.sourceId FROM Notice n ORDER BY n.sourceId")
+    List<Long> findDistinctSourceIds();
 }

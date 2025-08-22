@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/notices")
@@ -61,6 +62,16 @@ public class NoticeController {
             @RequestParam(required = false) String interests,
             @RequestParam(required = false, defaultValue = "10") Integer limit) {
         return noticeService.getRecommendedNotices(interests, limit);
+    }
+
+    @GetMapping("/categories")
+    public Map<String, Object> getNoticeCategories() {
+        return noticeService.getNoticeCategories();
+    }
+
+    @GetMapping("/category/{categoryId}")
+    public List<Notice> getNoticesByCategory(@PathVariable Long categoryId) {
+        return noticeService.getNoticesByCategory(categoryId);
     }
 
     @PostMapping
