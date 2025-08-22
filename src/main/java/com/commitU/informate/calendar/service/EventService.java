@@ -2,11 +2,15 @@ package com.commitU.informate.calendar.service;
 
 import com.commitU.informate.calendar.entity.Event;
 import com.commitU.informate.calendar.repository.EventRepository;
+import com.commitU.informate.notice.entity.Notice;
+import com.commitU.informate.notice.repository.NoticeRepository;
+import com.commitU.informate.user.entity.User;
+import com.commitU.informate.calendar.dto.EventCreateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,10 +19,35 @@ public class EventService {
 
     @Autowired
     private EventRepository eventRepository;
+    
+    @Autowired
+    private NoticeRepository noticeRepository;
+    
 
     // 새 일정 생성
     public Event createEvent(Event event) {
         // 비즈니스 검증
+        validateEvent(event);
+        return eventRepository.save(event);
+    }
+    
+    // 요청 DTO를 통한 일정 생성
+    public Event createEvent(EventCreateRequest request) {
+        User user = new User();
+        user.setId(request.getUserId());
+        
+        Event event = new Event();
+        event.setTitle(request.getTitle());
+        event.setDate(request.getDate());
+        event.setUser(user);
+        
+        // noticeId가 있으면 Notice 연결
+        if (request.getNoticeId() != null) {
+            Notice notice = noticeRepository.findById(request.getNoticeId())
+                    .orElseThrow(() -> new IllegalArgumentException("공지사항을 찾을 수 없습니다: " + request.getNoticeId()));
+            event.setNotice(notice);
+        }
+        
         validateEvent(event);
         return eventRepository.save(event);
     }
@@ -33,37 +62,44 @@ public class EventService {
     /**
      * 특정 사용자의 모든 일정 조회
      */
-    public List<Event> getUserEvents(String userId) {
-        return eventRepository.findByUserIdOrderByStartAtAsc(userId);
+    public List<Event> getUserEvents(Long userId) {
+        return eventRepository.findByUser_IdOrderByDateAsc(userId);
+    }
+    
+    /**
+     * Notice로부터 일정 생성
+     */
+    public Event createEventFromNotice(Long userId, Long noticeId, LocalDate date) {
+        User user = new User();
+        user.setId(userId);
+        
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new IllegalArgumentException("공지사항을 찾을 수 없습니다: " + noticeId));
+        
+        Event event = new Event();
+        event.setTitle(notice.getTitle());
+        event.setDate(date);
+        event.setUser(user);
+        event.setNotice(notice);
+        
+        return eventRepository.save(event);
     }
 
     /** 컨트롤러 호환용 래퍼 (최소 변경) */
     @Transactional(readOnly = true)
-    public List<Event> getEventsByDateRange(String userId, LocalDateTime start, LocalDateTime end) {
-        return getEventsOverlapping(userId, start, end);
-    }
-
-    /** 실제 겹침 조회 로직 */
-    @Transactional(readOnly = true)
-    public List<Event> getEventsOverlapping(String userId, LocalDateTime start, LocalDateTime end) {
-        if (userId == null || userId.isBlank()) throw new IllegalArgumentException("userId는 필수입니다.");
+    public List<Event> getEventsByDateRange(Long userId, LocalDate start, LocalDate end) {
+        if (userId == null) throw new IllegalArgumentException("userId는 필수입니다.");
         if (start == null || end == null) throw new IllegalArgumentException("start/end 는 필수입니다.");
         if (end.isBefore(start)) throw new IllegalArgumentException("end는 start 이후여야 합니다.");
-        return eventRepository.findOverlapping(userId, start, end);
+        return eventRepository.findByDateRange(userId, start, end);
     }
 
+    
     /**
-     * 제목으로 검색
+     * Notice와 연결된 일정만 조회
      */
-    public List<Event> searchEventsByTitle(String userId, String title) {
-        return eventRepository.findByUserIdAndTitleContainingIgnoreCaseOrderByStartAtAsc(userId, title);
-    }
-
-    /**
-     * 카테고리별 조회
-     */
-    public List<Event> getEventsByCategory(String userId, String category) {
-        return eventRepository.findByUserIdAndCategoryOrderByStartAtAsc(userId, category);
+    public List<Event> getEventsWithNotice(Long userId) {
+        return eventRepository.findByUser_IdAndNoticeIsNotNullOrderByDateAsc(userId);
     }
 
     /**
@@ -72,14 +108,12 @@ public class EventService {
     public Optional<Event> updateEvent(Long id, Event updatedEvent) {
         return eventRepository.findById(id)
                 .map(existingEvent -> {
-                    // 기존 일정의 정보를 새 정보로 업데이트
+                    // 기본 정보만 업데이트
                     existingEvent.setTitle(updatedEvent.getTitle());
-                    existingEvent.setDescription(updatedEvent.getDescription());
-                    existingEvent.setStartAt(updatedEvent.getStartAt());
-                    existingEvent.setEndAt(updatedEvent.getEndAt());
-                    existingEvent.setAllDay(updatedEvent.isAllDay());
-                    existingEvent.setLocation(updatedEvent.getLocation());
-                    existingEvent.setCategory(updatedEvent.getCategory());
+                    existingEvent.setDate(updatedEvent.getDate());
+                    if (updatedEvent.getNotice() != null) {
+                        existingEvent.setNotice(updatedEvent.getNotice());
+                    }
 
                     validateEvent(existingEvent);
                     return eventRepository.save(existingEvent);
@@ -101,13 +135,11 @@ public class EventService {
      * 일정 유효성 검증
      */
     private void validateEvent(Event event) {
-        if (event.getStartAt() == null || event.getEndAt() == null)
-            throw new IllegalArgumentException("startAt/endAt은 필수입니다");
-        if (event.getStartAt().isAfter(event.getEndAt()))
-            throw new IllegalArgumentException("시작 시간은 종료 시간보다 빨라야 합니다");
+        if (event.getDate() == null)
+            throw new IllegalArgumentException("date는 필수입니다");
         if (event.getTitle() == null || event.getTitle().trim().isEmpty())
             throw new IllegalArgumentException("제목은 필수입니다");
-        if (event.getUserId() == null || event.getUserId().isBlank())
-            throw new IllegalArgumentException("userId는 필수입니다");
+        if (event.getUser() == null)
+            throw new IllegalArgumentException("user는 필수입니다");
     }
 }

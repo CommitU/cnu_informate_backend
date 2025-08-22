@@ -10,29 +10,32 @@ POST /api/events
 Content-Type: application/json
 
 {
+  "userId": 1,
+  "noticeId": 100,
   "title": "테스트 일정",
-  "startAt": "2025-08-25T09:00:00",
-  "endAt": "2025-08-26T18:00:00",
-  "userId": "1",
-  "description": "선택적 설명",
-  "location": "선택적 위치",
-  "category": "선택적 카테고리",
-  "allDay": false
+  "date": "2025-08-25"
 }
 ```
+
+**Request Parameters:**
+- `userId` (필수): 사용자 ID
+- `noticeId` (선택): 연결할 공지사항 ID (없으면 일반 일정)
+- `title` (필수): 일정 제목
+- `date` (필수): 일정 날짜
 
 **Response:**
 ```json
 {
   "id": 13,
   "title": "테스트 일정",
-  "startAt": "2025-08-25T09:00:00",
-  "endAt": "2025-08-26T18:00:00",
-  "allDay": false,
-  "userId": "1",
-  "description": null,
-  "location": null,
-  "category": null
+  "date": "2025-08-25",
+  "user": {
+    "id": 1
+  },
+  "notice": {
+    "id": 100,
+    "title": "연결된 공지사항 제목"
+  }
 }
 ```
 
@@ -43,22 +46,44 @@ GET /api/events/{id}
 
 #### 3. 사용자별 일정 조회
 ```http
-GET /api/events?userId=user1
+GET /api/events?userId=1
 ```
 
 #### 4. 기간별 일정 조회 (달력 뷰용)
 ```http
-GET /api/events/range?userId=user1&start=2025-08-01T00:00:00&end=2025-08-31T23:59:59
+GET /api/events/range?userId=1&start=2025-08-01&end=2025-08-31
 ```
 
-#### 5. 제목으로 일정 검색
+#### 5. 공지사항으로부터 일정 생성
 ```http
-GET /api/events/search?userId=user1&title=회의
+POST /api/events/from-notice?userId=1&noticeId=1&date=2025-08-25
 ```
 
-#### 6. 카테고리별 일정 조회
+**Parameters:**
+- `userId` (필수): 사용자 ID
+- `noticeId` (필수): 공지사항 ID
+- `date` (필수): 일정 날짜
+
+**Response:**
+```json
+{
+  "id": 14,
+  "title": "2025학년도 제2학기 예비수강신청 계획 안내",
+  "date": "2025-08-25",
+  "user": {
+    "id": 1
+  },
+  "notice": {
+    "id": 1,
+    "title": "2025학년도 제2학기 예비수강신청 계획 안내",
+    "url": "https://plus.cnu.ac.kr/..."
+  }
+}
+```
+
+#### 6. Notice 연결된 일정 조회
 ```http
-GET /api/events/category?userId=user1&category=업무
+GET /api/events/with-notice?userId=1
 ```
 
 #### 7. 일정 수정
@@ -68,9 +93,7 @@ Content-Type: application/json
 
 {
   "title": "수정된 일정",
-  "startAt": "2025-08-25T10:00:00",
-  "endAt": "2025-08-26T19:00:00",
-  "userId": "1"
+  "date": "2025-08-25"
 }
 ```
 
@@ -322,13 +345,20 @@ GET /api/notices/category/{categoryId}
 {
   "id": "Long (자동 생성)",
   "title": "String (필수, 최대 100자)",
-  "description": "String (선택, 최대 500자)",
-  "startAt": "LocalDateTime (필수)",
-  "endAt": "LocalDateTime (필수)",
-  "allDay": "boolean (기본값: false)",
-  "location": "String (선택, 최대 255자)",
-  "category": "String (선택, 최대 50자)",
-  "userId": "String (필수, 최대 50자)"
+  "date": "LocalDate (필수)",
+  "user": "User 엔티티 (필수)",
+  "notice": "Notice 엔티티 (선택, 공지사항과 연결된 일정인 경우)"
+}
+```
+
+### User 엔티티
+```json
+{
+  "id": "Long (자동 생성)",
+  "email": "String (필수, 최대 200자, 유니크)",
+  "passwordHash": "String (필수, 최대 255자)",
+  "name": "String (선택, 최대 100자)",
+  "createdAt": "LocalDateTime (자동 설정)"
 }
 ```
 
@@ -355,18 +385,39 @@ GET /api/notices/category/{categoryId}
 
 ### Event API 테스트
 ```bash
-# 일정 생성
+# 일정 생성 (일반 일정)
 curl -X POST http://localhost:8080/api/events \
   -H "Content-Type: application/json" \
   -d '{
+    "userId": 1,
     "title": "테스트 일정",
-    "startAt": "2025-08-25T09:00:00",
-    "endAt": "2025-08-26T18:00:00",
-    "userId": "1"
+    "date": "2025-08-25"
   }'
+
+# 일정 생성 (공지사항 연결)
+curl -X POST http://localhost:8080/api/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": 1,
+    "noticeId": 100,
+    "title": "테스트 일정",
+    "date": "2025-08-25"
+  }'
+
+# 공지사항으로부터 일정 생성
+curl -X POST "http://localhost:8080/api/events/from-notice?userId=1&noticeId=1&date=2025-08-25"
 
 # 사용자별 일정 조회
 curl "http://localhost:8080/api/events?userId=1"
+
+# 특정 일정 조회
+curl "http://localhost:8080/api/events/1"
+
+# 일정 삭제
+curl -X DELETE "http://localhost:8080/api/events/1"
+
+# Notice 연결된 일정만 조회
+curl "http://localhost:8080/api/events/with-notice?userId=1"
 ```
 
 ### Notice API 테스트
@@ -415,7 +466,7 @@ http://localhost:8080
 
 ## 📝 참고사항
 
-- 모든 날짜/시간은 ISO 8601 형식 사용: `YYYY-MM-DDTHH:mm:ss`
+- 모든 날짜는 ISO 8601 형식 사용: `YYYY-MM-DD`
 - 한글 검색어는 URL 인코딩 필요
 - 모든 API는 JSON 형태로 응답
 - 서버는 기본적으로 8080 포트에서 실행
