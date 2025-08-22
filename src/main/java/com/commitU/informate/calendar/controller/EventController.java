@@ -25,6 +25,17 @@ public class EventController {
         return ResponseEntity.ok(createdEvent);
     }
 
+    // Notice로부터 일정 생성 (POST /api/events/from-notice)
+    @PostMapping("/from-notice")
+    public ResponseEntity<Event> createEventFromNotice(
+            @RequestParam Long userId,
+            @RequestParam Long noticeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startAt,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endAt) {
+        Event createdEvent = eventService.createEventFromNotice(userId, noticeId, startAt, endAt);
+        return ResponseEntity.ok(createdEvent);
+    }
+
     // 일정 단건 조회(Get /api/events/{id})
     @GetMapping("/{id}")
     public ResponseEntity<Event> getEvent(@PathVariable Long id) {
@@ -33,45 +44,53 @@ public class EventController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 사용자의 모든 일정 조회(Get /api/events?userId=user1)
+    // 사용자의 모든 일정 조회(Get /api/events?userId=1)
     @GetMapping
-    public List<Event> getUserEvents(@RequestParam String userId) {
+    public List<Event> getUserEvents(@RequestParam Long userId) {
         return eventService.getUserEvents(userId);
     }
 
     /**
      * 기간별 일정 조회 (달력 뷰용)
-     * GET /api/events/range?userId=user1&start=2025-08-01T00:00:00&end=2025-08-31T23:59:59
+     * GET /api/events/range?userId=1&start=2025-08-01T00:00:00&end=2025-08-31T23:59:59
      */
     @GetMapping("/range")
     public List<Event> getEventsByRange(
-            @RequestParam String userId,
+            @RequestParam Long userId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         return eventService.getEventsByDateRange(userId, start, end);
     }
 
-
     /**
      * 제목으로 일정 검색
-     * GET /api/events/search?userId=user1&title=회의
+     * GET /api/events/search?userId=1&title=회의
      */
     @GetMapping("/search")
     public List<Event> searchEvents(
-            @RequestParam String userId,
+            @RequestParam Long userId,
             @RequestParam String title) {
         return eventService.searchEventsByTitle(userId, title);
     }
 
     /**
      * 카테고리별 일정 조회
-     * GET /api/events/category?userId=user1&category=업무
+     * GET /api/events/category?userId=1&category=업무
      */
     @GetMapping("/category")
     public List<Event> getEventsByCategory(
-            @RequestParam String userId,
+            @RequestParam Long userId,
             @RequestParam String category) {
         return eventService.getEventsByCategory(userId, category);
+    }
+
+    /**
+     * Notice와 연결된 일정 조회
+     * GET /api/events/with-notice?userId=1
+     */
+    @GetMapping("/with-notice")
+    public List<Event> getEventsWithNotice(@RequestParam Long userId) {
+        return eventService.getEventsWithNotice(userId);
     }
 
     /**
