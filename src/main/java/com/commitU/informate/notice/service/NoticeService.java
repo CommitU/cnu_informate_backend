@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.HashSet;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 @Service
 public class NoticeService {
@@ -157,5 +159,42 @@ public class NoticeService {
         }
 
         return score;
+    }
+
+    public Map<String, Object> getNoticeCategories() {
+        List<Long> sourceIds = noticeRepository.findDistinctSourceIds();
+        Map<String, Object> categories = new LinkedHashMap<>();
+        
+        for (Long sourceId : sourceIds) {
+            Map<String, Object> categoryInfo = new LinkedHashMap<>();
+            categoryInfo.put("sourceId", sourceId);
+            categoryInfo.put("name", getCategoryName(sourceId));
+            categoryInfo.put("count", noticeRepository.findBySourceIdOrderByPostedAtDesc(sourceId).size());
+            categories.put(sourceId.toString(), categoryInfo);
+        }
+        
+        return categories;
+    }
+
+    public List<Notice> getNoticesByCategory(Long sourceId) {
+        return noticeRepository.findBySourceIdOrderByPostedAtDesc(sourceId);
+    }
+
+    private String getCategoryName(Long sourceId) {
+        switch (sourceId.intValue()) {
+            case 1: return "특강";
+            case 2: return "기획/마케팅";
+            case 3: return "취업/인턴십";
+            case 4: return "봉사 활동";
+            case 5: return "IT/SW";
+            case 6: return "스터디";
+            case 7: return "디자인";
+            case 8: return "창업";
+            case 9: return "영상/콘텐츠";
+            case 10: return "서포터즈/기자단";
+            case 11: return "학사 안내";
+            case 12: return "기타";
+            default: return "기타 (ID: " + sourceId + ")";
+        }
     }
 }
