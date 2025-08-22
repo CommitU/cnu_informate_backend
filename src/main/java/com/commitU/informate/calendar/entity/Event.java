@@ -2,6 +2,7 @@ package com.commitU.informate.calendar.entity;
 
 import com.commitU.informate.notice.entity.Notice;
 import com.commitU.informate.user.entity.User;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,10 +27,12 @@ public class Event {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "notice_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Notice notice;
 
     // 기본 생성자
